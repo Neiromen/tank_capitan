@@ -120,3 +120,23 @@
 
 - **Запуск из исходников:** в корне проекта нужны папки **`model`** (Vosk) и **`kronos_models`** (best.pt, yolov12n.pt). Установи зависимости: `pip install -r requirements.txt` (+ при необходимости `mouse`, `pywin32`, `dxcam`, `opencv-python`, `ultralytics` для полной функциональности).
 - **Сборка exe:** выполни `build.bat` или `python -m PyInstaller --clean -y build.spec`. Результат: `dist\TankVoice.exe`.
+
+---
+
+## Пуш в GitHub (если был HTTP 408 / remote hung up)
+
+История переписана: в репозитории нет папки **`build/`**, тяжёлые артефакты сборки не пушатся. Настроены буфер и таймауты.
+
+**Сделай пуш вручную** (в Git Bash или cmd, не PowerShell):
+
+```bash
+git config http.postBuffer 1048576000
+git config https.postBuffer 1048576000
+git config http.lowSpeedLimit 1000
+git config http.lowSpeedTime 600
+git push --force origin master
+```
+
+Если используешь прокси (`GIT_HTTPS_PROXY`), на время пуша можно сбросить: `git config --unset http.proxy` и `git config --unset https.proxy`, затем снова выставить после пуша при необходимости.
+
+**Exe (LFS):** чтобы снова добавить `dist/TankVoice.exe` в репозиторий, выполни `git add dist/` и коммит **в Git Bash** — из PowerShell при LFS иногда возникает ошибка «signal pipe».

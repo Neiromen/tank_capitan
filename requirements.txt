@@ -1,0 +1,10 @@
+# Основные (обязательные для src.py)
+sounddevice>=0.4.6
+vosk>=0.3.45
+pyautogui>=0.9.54
+
+# Опционально: лучше работа в играх, фоновая детекция
+# pip install mouse pywin32 dxcam opencv-python numpy ultralytics
+
+# Сборка exe
+pyinstaller>=6.0

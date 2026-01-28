@@ -1,0 +1,12 @@
+# Артефакты сборки PyInstaller
+build/
+
+# Виртуальное окружение
+.venv/
+venv/
+env/
+
+# Кэш Python
+__pycache__/
+*.py[cod]
+*.pyo

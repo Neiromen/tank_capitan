@@ -61,7 +61,7 @@ except ImportError:
 
 MODEL_PATH = os.path.join(BASE_DIR, "model")
 SAMPLE_RATE = 16000
-WORDS_SPEC = '["влево вправо перед назад стоп снаряд один два три снаряжение активировать деактивировать снайперский выстрел отставить цель отключить пилота включить пилота четыре пять шесть семь восемь девять десять одиннадцать двенадцать час часа часов", "[unk]"]'
+WORDS_SPEC = '["влево вправо перед назад стоп снаряд один два три снаряжение активировать деактивировать снайперский выстрел отставить цель отключить пилота включить пилота четыре пять шесть семь восемь девять десять одиннадцать двенадцать час часа часов огонь налево направо прямо вперед поднять опустить дуло ствол", "[unk]"]'
 CONTROLS = ["w", "a", "s", "d"]
 # «Влево»/«вправо»: зажать клавишу на это время (сек), затем отпустить (не удержание до «стоп»)
 turn_key_hold_duration = 1.0
@@ -98,6 +98,9 @@ tower_rotation_step_count = 0  # Счётчик шагов в текущем н�
 clock_pixels_per_90 = 1500  # пикселей мыши на поворот на 90°
 AIM_SENSITIVITY_REFERENCE = 1500  # база для расчёта наводки (не трогать, если устраивает)
 aim_sensitivity_factor = 0.7  # чувствительность наводки: меньше = плавнее (0.5 = вдвое слабее, 0.3 = в 3 раза)
+
+# Микрокоррекция ствола по вертикали (поднять/опустить дуло/ствол)
+barrel_adjust_pixels = 15  # пикселей мыши для небольшой коррекции ствола
 
 # Индикация "цель захвачена" / "поиск" — звук и оверлей
 target_status_overlay = None  # Окно оверлея (обновляется в потоке детекции)
@@ -474,21 +477,6 @@ def background_detection_loop():
                 
                 if is_enemy and right_click_locked:
                     move_mouse_to_target(center_x, center_y, frame.shape)
-                    if conf >= rmb_double_click_conf_threshold:
-                        t = time.time()
-                        if t - last_rmb_double_click_time >= rmb_double_click_cooldown:
-                            last_rmb_double_click_time = t
-                            try:
-                                if MOUSE_AVAILABLE:
-                                    mouse.click(button='right')
-                                    time.sleep(rmb_double_click_interval)
-                                    mouse.click(button='right')
-                                else:
-                                    pyautogui.click(button='right')
-                                    time.sleep(rmb_double_click_interval)
-                                    pyautogui.click(button='right')
-                            except Exception:
-                                pass
                 elif is_enemy and not right_click_locked:
                     current_time = time.time()
                     if current_time - last_right_click_time >= right_click_cooldown:
@@ -596,7 +584,7 @@ def process_command(cmd):
     now = time.time()
     if cmd == 'отставить' and last_shoot_time and (now - last_shoot_time) < POST_SHOOT_IGNORE_OTSTAVIT_SEC:
         return
-    if cmd == 'выстрел' and last_shoot_time and (now - last_shoot_time) < POST_SHOOT_DEBOUNCE_SEC:
+    if cmd in ('выстрел', 'огонь') and last_shoot_time and (now - last_shoot_time) < POST_SHOOT_DEBOUNCE_SEC:
         return
     current_time = time.time()
     if cmd == last_command and current_time - last_command_time < command_cooldown:
@@ -628,15 +616,15 @@ def process_command(cmd):
             _key_up("w")
         elif cmd == 'стоп назад':
             _key_up("s")
-        elif cmd == 'влево':
+        elif cmd == 'влево' or cmd == 'налево':
             _key_down("a")
             time.sleep(turn_key_hold_duration)
             _key_up("a")
-        elif cmd == 'вправо':
+        elif cmd == 'вправо' or cmd == 'направо':
             _key_down("d")
             time.sleep(turn_key_hold_duration)
             _key_up("d")
-        elif cmd == 'перед':
+        elif cmd == 'перед' or cmd == 'вперед' or cmd == 'прямо':
             _key_up("s")
             _key_down("w")
         elif cmd == 'назад':
@@ -660,7 +648,7 @@ def process_command(cmd):
         elif cmd == 'деактивировать снайперский':
             print("[DEBUG] scroll(-1000)")
             pyautogui.scroll(-1000)
-        elif cmd == 'выстрел':
+        elif cmd == 'выстрел' or cmd == 'огонь':
             shoot()
             last_shoot_time = time.time()
         elif cmd == 'отставить':
@@ -670,6 +658,28 @@ def process_command(cmd):
             target_status_text = STATUS_SEARCHING
             play_searching_sound()
             print("--- БЛОКИРОВКА ПКМ СНЯТА. В ПОИСКЕ ЦЕЛИ ---")
+        elif cmd in ('поднять дуло', 'поднять ствол'):
+            try:
+                if WIN32_AVAILABLE:
+                    win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, 0, -barrel_adjust_pixels, 0, 0)
+                elif MOUSE_AVAILABLE:
+                    mouse.move(0, -barrel_adjust_pixels, absolute=False, duration=0.02)
+                else:
+                    pyautogui.moveRel(0, -barrel_adjust_pixels, duration=0.02)
+            except Exception:
+                pyautogui.moveRel(0, -barrel_adjust_pixels, duration=0.02)
+            print("--- СТВОЛ ПОДНЯТ ---")
+        elif cmd in ('опустить дуло', 'опустить ствол'):
+            try:
+                if WIN32_AVAILABLE:
+                    win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, 0, barrel_adjust_pixels, 0, 0)
+                elif MOUSE_AVAILABLE:
+                    mouse.move(0, barrel_adjust_pixels, absolute=False, duration=0.02)
+                else:
+                    pyautogui.moveRel(0, barrel_adjust_pixels, duration=0.02)
+            except Exception:
+                pyautogui.moveRel(0, barrel_adjust_pixels, duration=0.02)
+            print("--- СТВОЛ ОПУЩЕН ---")
         elif cmd in CLOCK_COMMANDS:
             turn_turret_to_clock(CLOCK_COMMANDS[cmd])
         else:
@@ -692,13 +702,15 @@ VOICE_COMMANDS_LIST = sorted(
     ["отключить пилота", "включить пилота", "деактивировать снайперский", "активировать снайперский",
      "стоп влево", "стоп вправо", "стоп перед", "стоп назад",
      "снаряжение один", "снаряжение два", "снаряжение три",
-     "снаряд один", "снаряд два", "снаряд три", "отставить", "стоп", "влево", "вправо", "перед", "назад", "выстрел"]
+     "снаряд один", "снаряд два", "снаряд три", "отставить", "стоп", "влево", "вправо", "перед", "назад", "выстрел",
+     "огонь", "налево", "направо", "прямо", "вперед",
+     "поднять дуло", "поднять ствол", "опустить дуло", "опустить ствол"]
     + list(CLOCK_COMMANDS.keys()),
     key=len, reverse=True
 )
 # Команды, которые НЕ запускаем по partial — только по финалу (меньше ложных срабатываний)
 # влево/вправо/перед/назад — путаются; выстрел/отставить — от одного «выстрел» partial даёт выстрел, потом ложные «отставить», потом финал «выстрел» снова
-PARTIAL_EXCLUDED_COMMANDS = {"влево", "вправо", "перед", "назад", "выстрел", "отставить"}
+PARTIAL_EXCLUDED_COMMANDS = {"влево", "вправо", "перед", "назад", "выстрел", "отставить", "огонь", "налево", "направо", "прямо", "вперед"}
 # Дебаунс: не выполнять ту же команду из partial дважды и не дублировать при приходе final
 last_partial_cmd = None
 last_partial_time = 0.0
